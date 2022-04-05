@@ -1,324 +1,133 @@
-import { UpdateUserChurchDTO } from './../dto/UpdateUserChurchDTO';
+
 import { CreateUserDTO } from './../dto/CreateUserDTO';
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/service/prisma.service';
-import { Ministry, PG, User, UserAddress, Church } from '@prisma/client';
+import * as fs from 'fs';
+import * as path from 'path';
 import { UpdateUserDTO } from '../dto/UpdateUserDTO';
-import { CreateUserAddressDTO } from '../dto/CreateUserAddressDTO';
-import { UpdateUserAddressDTO } from '../dto/UpdateUserAddressDTO';
+
+
+
+export interface User {
+  id: string;
+
+  email: string;
+
+  name: string;
+
+  address: string;
+
+}
 
 
 
 @Injectable()
 export class UserService {
+
+  private userRepository = []
    
-  constructor(private readonly prisma: PrismaService) {}
+  constructor() {}
 
     async create(data: CreateUserDTO) {
 
-     const user = await this.prisma.user.create({
-       data
-      })
-      
-      return user
-      
-    }
+      this.userRepository.push(data)
 
-    async update(id: string, user: UpdateUserDTO): Promise<void> {
-     
-      await this.prisma.user.update({
-        where: {
-          id: id
-        },
-        data: {
-          ...user,
+      await fs.writeFile(`C:/Users/convs/Desktop/CRUD/tmp` + "/" + "clients.json", JSON.stringify(this.userRepository, null, 2), (error) => {
+        if (error) {
+        console.log('An error has occurred ', error);
+          return;
         }
-      })
+        console.log('Data written successfully to disk');
+    })
+
+    }
+
+    async update(data: UpdateUserDTO): Promise<void> {
+     
+      let userToUpdate = this.userRepository.find(client => client.id === data.id)
+
+      userToUpdate = {...data}
+
+      this.userRepository.push(userToUpdate)
+
+      await fs.writeFile(`./tmp` + "/" + "clients.json", JSON.stringify(this.userRepository, null, 2), (error) => {
+        if (error) {
+        console.log('An error has occurred ', error);
+          return;
+        }
+        console.log('Data written successfully to disk');
+    })
       
       
     }
 
-    async findAll(): Promise<User[]>{
-      const users = await this.prisma.user.findMany()
-    
-      return users
+    async findAll(): Promise<any>{
+
+      return new Promise(async (resolve, reject) => {
+        await fs.readFile('./tmp' + "/" + "clients.json", 'utf-8', (error, data) => {
+          if (error) {
+          console.log('An error has occurred ', error);
+            reject(error)
+          }
+          const clients = JSON.parse(data)
+   
+          resolve(clients)
+      })
+      
+        
+    })
       }
 
-      async findByEmail(email: string): Promise<User> {
-        const user = await this.prisma.user.findUnique({
-          where: {
-            email
-          }
-        })
-        return user
-      }
     
     
     async delete(id: string): Promise<void> {
       
-      await this.prisma.user.delete({
-        where: {
-          id
-        }
-      })
-
-    }
-
-    async findById(id: string): Promise<User> {
-      const user = await this.prisma.user.findUnique({
-        where: {
-            id
-        }
-      })
     
-      return user
-  
-    }
-
-
-    async findByName(name: string): Promise<User[]> {
-      const user = await this.prisma.user.findMany({
-        where: {
-          name: {
-            contains: name
+        await fs.readFile('./tmp' + "/" + "clients.json", 'utf-8', async (error, data) => {
+          if (error) {
+          console.log('An error to read file has occurred ', error);
           }
-        }
-      })
-    
-      return user
-    }
+          const clients = JSON.parse(data)
+          this.userRepository = [...clients]
+  
+          const newArray = this.userRepository.filter(user => user.id !== id)
+          this.userRepository = [...newArray]
 
-    async createUserAddress(id: string, address: CreateUserAddressDTO): Promise<void>{
-      await this.prisma.userAddress.create({
-        data: {
-          ...address, 
-          user: {
-            connect: {
-              id
+          await fs.writeFile(`./tmp` + "/" + "clients.json", JSON.stringify(this.userRepository, null, 2), (error) => {
+            if (error) {
+            console.log('An error to write file has occurred ', error);
+              return;
             }
-          }
-        },
-      })
-    }
+            console.log('Data written successfully to disk');
+        })
 
-    async findAddress(userId: string): Promise<UserAddress>{
-      const address = this.prisma.userAddress.findUnique({
-        where: {
-          userId
-        }
-      })
-
-      return address
-    }
-
-    async updateAddress(id: string, address: UpdateUserAddressDTO): Promise<void>{
-      await this.prisma.userAddress.update({
-        where: {
-          id
-        },
-        data: {
-          ...address
-        }
       })
       
+        
+   
+     
+
     }
 
-    async deleteAddress(id: string): Promise<void>{
-      await this.prisma.userAddress.delete({
-        where: {
-          id
-        }
-      })
-    }
-
-    async updateUserChurch(id: string, church: UpdateUserChurchDTO): Promise<void>{
-
-      await this.prisma.church.update({
-        where: {
-          name: church.name
-        },
-        data: {
-          members: {
-            connect: {
-              id
-            }
-          }
-        }
-      })
-    }
-
-    async findMinistry(userId: string): Promise<Ministry[]> {
+    async findById(id: string): Promise<any> {
       
-      const subscriptions = await this.prisma.subscriptionMinistry.findMany({
-        where: {
-          memberId: userId
-        }
-      })
 
-      const ministries = subscriptions.map(async (subscription) => {
-        const ministry = await this.prisma.ministry.findUnique({
-          where: {
-            id: subscription.ministryId
+
+      return new Promise(async (resolve, reject) => {
+        await fs.readFile('./tmp' + "/" + "clients.json", 'utf-8', (error, data) => {
+          if (error) {
+          console.log('An error has occurred ', error);
+            reject(error)
           }
-        })
-
-        return ministry
-      })
-
-      const result = await Promise.all(ministries)
-      return result
-
-    }
-
-    async findCoordinationMinistry(userId: string): Promise<Ministry[]> {
-
-      const coordinations = await this.prisma.coordinationMinistry.findMany({
-        where: {
-          coordinatorId: userId
-        }
-      })
-
-      const ministries = coordinations.map(async (coordination) => {
-        const ministry = await this.prisma.ministry.findUnique({
-          where: {
-            id: coordination.ministryId
-          }
-        })
-
-        return ministry
-      })
-
-      const result = await Promise.all(ministries)
-      return result
-    }
-
-
-    async findPG(userId: string): Promise<PG>{
-      const subscription = await this.prisma.subscriptionPG.findUnique({
-        where: {
-          memberId: userId
-        }
-      })
-
-      if(subscription) {
-        const pg = await this.prisma.pG.findUnique({
-          where: {
-            id: subscription.pgId
-          }
-        })
+          const clients = JSON.parse(data)
+          this.userRepository = [...clients]
   
-        return pg
-      }
+          const client = this.userRepository.find(user => user.id === id)
+   
+          resolve(client)
+      })
       
+        
+    })
+
     }
-
-
-    async findCoordinationPG(userId: string): Promise<PG> {
-
-      const coordination = await this.prisma.coordinationPG.findUnique({
-        where: {
-          coordinatorId: userId
-        }
-      })
-
-      if(coordination) {
-        const pg = await this.prisma.pG.findUnique({
-          where: {
-            id: coordination.pgId
-          }
-        })
-  
-        return pg
-      }
-    }
-
-    async findChurch(userId: string): Promise<Church> {
-
-      const user = await this.prisma.user.findUnique({
-        where: {
-          id: userId
-        },
-        include: {
-          church: true
-        }
-      })
-
-      return user.church
-    }
-
-
-    async findAllUsersMembers(): Promise<User[]> {
-      const users = await this.prisma.user.findMany({
-        where: {
-          NOT: {
-            role: "VISITANTE"
-          }
-        }
-      })
-
-      return users
-    }
-
-    async findAllUsersVisitors(): Promise<User[]> {
-      const users = await this.prisma.user.findMany({
-        where: {
-          role: "VISITANTE"
-        }
-      })
-
-      return users
-    }
-
-    async findAllUsersPastor(): Promise<User[]> {
-      const users = await this.prisma.user.findMany({
-        where: {
-          role: "PASTOR"
-        }
-      })
-
-      return users
-    }
-
-    async findAllUsersDiacono(): Promise<User[]> {
-      const users = await this.prisma.user.findMany({
-        where: {
-          role: "DIACONO"
-        }
-      })
-
-      return users
-    }
-
-    async findAllUsersPresbitero(): Promise<User[]> {
-      const users = await this.prisma.user.findMany({
-        where: {
-          role: "PRESBITERO"
-        }
-      })
-
-      return users
-    }
-
-    async findAllUsersMissionario(): Promise<User[]> {
-      const users = await this.prisma.user.findMany({
-        where: {
-          role: "MISSIONARIO"
-        }
-      })
-
-      return users
-    }
-
-    async findAllUsersEvangelista(): Promise<User[]> {
-      const users = await this.prisma.user.findMany({
-        where: {
-          role: "EVANGELISTA"
-        }
-      })
-
-      return users
-    }
-
-    
-
-}
+  }
